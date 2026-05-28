@@ -1,0 +1,27 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+
+## Visual Studio
+.vs/
+*.sln.docstates
+
+## VS Code
+.vscode/
+
+## NuGet
+*.nupkg
+**/packages/*
+
+## Rider
+.idea/
+
+## OS
+.DS_Store
+Thumbs.db

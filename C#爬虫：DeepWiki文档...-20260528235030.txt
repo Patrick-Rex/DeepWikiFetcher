@@ -1,0 +1,263 @@
+## user
+
+我希望开发一个C#爬虫项目，用于爬取DeepWiki 的文档，以项目为单位爬取文档集
+github源代码仓库URL的 github.com改成 deepwiki.com,即可获得对应仓库的源代码分析文档，我想直接输入仓库地址就可以下载文档集合
+帮我进行设计规划
+
+## assistant
+
+这是一个非常实用且明确的需求。DeepWiki 本质上是一个基于 GitHub 仓库 URL 映射的静态/动态文档站点，其结构相对规律，非常适合编写爬虫。
+
+在开始设计之前，我需要先确认 DeepWiki 当前的页面结构和是否有官方 API（这决定了爬虫的稳定性和合规性）。让我进一步搜索 DeepWiki 的具体页面结构和是否存在可用的 API 接口，这对爬虫设计至关重要。让我再搜索一下 DeepWiki 的具体页面 DOM 结构和是否有已知的爬虫/API 方案。根据调研结果，DeepWiki 目前没有公开的官方 REST API，其页面是基于 Next.js/React 的 SPA 应用，文档内容通过前端渲染。URL 结构为 https://deepwiki.com/{owner}/{repo}/{page-slug}，侧边栏包含完整的文档目录树。以下是为你设计的完整 C# 爬虫项目规划：
+
+🏗️ DeepWiki 文档爬虫 — C# 项目设计规划
+
+一、核心思路分析
+维度 | 说明
+------|------
+URL 映射规则 | github.com/{owner}/{repo} → deepwiki.com/{owner}/{repo}
+页面类型 | Next.js SPA，内容可能通过 SSR 或客户端 JS 渲染
+文档结构 | 左侧边栏为目录树（含子页面链接），右侧为 Markdown 渲染的文档正文
+关键挑战 | ① SPA 动态渲染可能需要浏览器引擎 ② 需解析侧边栏获取完整页面列表 ③ 反爬/限流
+合规注意 | DeepWiki 对开源项目免费开放，但爬取应遵守 robots.txt、控制频率、仅用于个人学习
+二、技术选型建议
+
+推荐方案：HttpClient + AngleSharp（优先） / Playwright（兜底）
+组件 | 推荐库 | 用途
+------|--------|------
+HTTP 请求 | HttpClient + Polly | 请求 + 重试/限流策略
+HTML 解析 | AngleSharp | 解析 DOM、提取侧边栏链接和正文
+浏览器渲染(备选) | Playwright for .NET | 当纯 HTTP 拿不到内容时，用无头浏览器渲染 SPA
+Markdown 转换 | Markdig / ReverseMarkdown | HTML→Markdown 保存
+序列化 | System.Text.Json | 保存元数据/索引
+日志 | Serilog | 结构化日志
+CLI 框架 | Spectre.Console | 美观的命令行交互+进度条
+并发控制 | Channel<T> + SemaphoreSlim | 生产者-消费者模型，控制并发
+三、项目结构设计
+
+DeepWikiCrawler/
+├── Program.cs                    # 入口，CLI 交互
+├── Models/
+│   ├── RepoInfo.cs               # 仓库信息 (owner, repo, deepwikiUrl)
+│   ├── WikiPage.cs               # 单个文档页 (title, slug, url, content, children)
+│   └── CrawlResult.cs            # 爬取结果汇总
+├── Services/
+│   ├── UrlConverter.cs           # GitHub URL → DeepWiki URL 转换
+│   ├── SidebarParser.cs          # 解析侧边栏目录树，获取所有页面链接
+│   ├── PageFetcher.cs            # 获取单个页面内容（HTTP / Playwright 双模式）
+│   ├── ContentExtractor.cs       # 从 HTML 中提取正文 + HTML→Markdown
+│   ├── CrawlOrchestrator.cs      # 核心调度器：BFS/DFS 遍历 + 并发控制
+│   └── DocumentSaver.cs          # 按目录结构保存文件
+├── Infrastructure/
+│   ├── RateLimiter.cs            # 令牌桶/滑动窗口限流
+│   ├── RetryPolicy.cs            # Polly 重试策略配置
+│   └── PlaywrightManager.cs      # Playwright 生命周期管理（可选）
+├── Config/
+│   └── CrawlerConfig.cs          # 配置项（并发数、延迟、输出路径等）
+└── Output/                       # 默认输出目录
+    └── {owner}/{repo}/
+        ├── _index.json           # 文档索引/目录树
+        ├── overview.md
+        ├── 1-getting-started.md
+        └── ...
+
+四、核心流程设计
+
+┌─────────────────────────────────────────────────────┐
+│              用户输入 GitHub 仓库 URL                  │
+│         github.com/dotnet/runtime                     │
+└──────────────────────┬──────────────────────────────┘
+                       ▼
+              ┌─────────────────┐
+              │  UrlConverter   │ → deepwiki.com/dotnet/runtime
+              └────────┬────────┘
+                       ▼
+              ┌─────────────────┐
+              │  访问首页        │ → GET /dotnet/runtime
+              │  检查是否已索引   │   (404 = 未收录，提示用户先去生成)
+              └────────┬────────┘
+                       ▼
+              ┌─────────────────┐
+              │ SidebarParser   │ → 递归解析侧边栏 <nav>/<aside>
+              │ 获取全部页面URL  │   构建 WikiPage 树形结构
+              └────────┬────────┘
+                       ▼
+              ┌─────────────────┐
+              │ CrawlOrchestrator│ → Channel<WikiPage> 任务队列
+              │ 并发抓取每个页面  │   SemaphoreSlim 限制并发(默认3)
+              │ + RateLimiter   │   请求间隔 ≥ 2s
+              └────────┬────────┘
+                       ▼
+              ┌─────────────────┐
+              │ContentExtractor │ → 定位主内容区域 CSS Selector
+              │ HTML → Markdown │   清洗导航/脚本/广告等噪声
+              └────────┬────────┘
+                       ▼
+              ┌─────────────────┐
+              │ DocumentSaver   │ → 按目录层级写入 .md 文件
+              │ + _index.json  │   生成可搜索的索引文件
+              └─────────────────┘
+
+五、关键技术点详解
+URL 转换与验证
+public class UrlConverter
+{
+    public static string ToDeepWiki(string githubUrl)
+    {
+        // 支持多种格式: 
+        // https://github.com/owner/repo
+        // https://github.com/owner/repo.git
+        // github.com/owner/repo/tree/main/src
+        var match = Regex.Match(githubUrl, @"github\.com/([^/]+)/([^/.]+)");
+        if (!match.Success) throw new ArgumentException("无效的GitHub URL");
+        return $"https://deepwiki.com/{match.Groups[1].Value}/{match.Groups[2].Value}";
+    }
+}
+侧边栏解析（最关键的一步）
+⚠️ 需要你实际打开一个 DeepWiki 页面，F12 确认侧边栏的 CSS Selector。根据搜索结果，DeepWiki 页面 URL 形如 /owner/repo/2-core-architecture，侧边栏包含带编号的层级链接。
+
+public class SidebarParser
+{
+    // 需要根据实际DOM调整选择器
+    private const string SidebarSelector = "nav a[href], aside a[href]"; 
+    
+    public async Task<List<WikiPage>> ParseAsync(IDocument document, string baseUrl)
+    {
+        var links = document.QuerySelectorAll(SidebarSelector);
+        var pages = new List<WikiPage>();
+        
+        foreach (var link in links)
+        {
+            var href = link.GetAttribute("href");
+            if (string.IsNullOrEmpty(href) || !href.StartsWith("/")) continue;
+            
+            pages.Add(new WikiPage
+            {
+                Title = link.TextContent.Trim(),
+                Slug = href.Split('/').Last(),
+                FullUrl = $"https://deepwiki.com{href}",
+                Depth = CountDepth(href) // 根据URL路径深度判断层级
+            });
+        }
+        return pages.DistinctBy(p => p.FullUrl).ToList();
+    }
+}
+双模式内容获取（应对 SPA）
+public class PageFetcher
+{
+    private readonly HttpClient _http;
+    private readonly IPlaywright? _playwright; // nullable, 按需启用
+    
+    public async Task<string> FetchAsync(string url, bool forceBrowser = false)
+    {
+        if (!forceBrowser)
+        {
+            var html = await _http.GetStringAsync(url);
+            // 检查是否包含实际内容（SSR 场景）
+            if (ContainsMainContent(html)) return html;
+        }
+        
+        // Fallback: Playwright 渲染
+        using var browser = await _playwright!.Chromium.LaunchAsync(new() { Headless = true });
+        using var page = await browser.NewPageAsync();
+        await page.GotoAsync(url, new() { WaitUntil = WaitUntilState.NetworkIdle });
+        await page.WaitForSelectorAsync("article, main, [class*='content']");
+        return await page.ContentAsync();
+    }
+}
+限流与重试
+// Polly 配置示例
+var retryPolicy = HttpPolicyExtensions
+    .HandleTransientHttpError()
+    .Or<TimeoutRejectedException>()
+    .WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+
+var rateLimitPolicy = Policy
+    .RateLimitAsync(30, TimeSpan.FromMinutes(1)); // 每分钟最多30次
+
+六、输出格式设计
+
+每个仓库输出为一个文件夹，包含：
+
+output/dotnet/runtime/
+├── _metadata.json          # 爬取时间、源URL、页数统计
+├── _index.json             # 完整目录树（可用于后续导入Obsidian/Notion）
+├── 0-overview.md           # 项目概览
+├── 1-getting-started/
+│   ├── 1.1-installation.md
+│   └── 1.2-configuration.md
+├── 2-core-architecture/
+│   ├── 2.1-runtime-hosting.md
+│   └── 2.2-garbage-collection.md
+└── assets/                 # 图片等资源（如有）
+    └── architecture-diagram.png
+
+_index.json 示例：
+{
+  "repo": "dotnet/runtime",
+  "sourceUrl": "https://deepwiki.com/dotnet/runtime",
+  "crawledAt": "2026-05-28T23:50:00+08:00",
+  "totalPages": 42,
+  "tree": [
+    { "title": "Overview", "slug": "overview", "file": "0-overview.md", "children": [] },
+    { "title": "Getting Started", "slug": "1-getting-started", "file": null, "children": [
+      { "title": "Installation", "slug": "1.1-installation", "file": "1-getting-started/1.1-installation.md" }
+    ]}
+  ]
+}
+
+七、开发路线图
+阶段 | 任务 | 预计工时
+------|------|----------
+P0 - 验证 | 手动 F12 分析 DeepWiki 真实 DOM 结构，确认侧边栏/正文选择器；测试纯 HTTP 是否能拿到 SSR 内容 | 2h
+P1 - MVP | UrlConverter + SidebarParser + PageFetcher(HTTP模式) + ContentExtractor + 文件保存 | 6-8h
+P2 - 健壮性 | Polly 重试/限流、Playwright fallback、断点续爬（已爬URL记录）、错误处理 | 4-6h
+P3 - 体验 | Spectre.Console CLI、进度条、配置文件、批量仓库支持 | 3-4h
+P4 - 增强 | 图片下载、Mermaid 图表保留、导出 PDF/Epub、增量更新 | 按需
+八、⚠️ 重要注意事项
+先做 P0 验证：DeepWiki 是 SPA，必须先确认纯 HTTP 请求能否获得完整 HTML。如果内容是纯客户端渲染的，则必须上 Playwright，架构复杂度会显著增加。
+robots.txt：爬取前先检查 https://deepwiki.com/robots.txt，遵守其规则。
+频率控制：建议默认 2-3 秒/请求，避免对服务造成压力。DeepWiki 是免费服务，过度爬取可能导致 IP 被封。
+缓存机制：对已下载的页面做本地缓存（SQLite/文件哈希），支持中断后继续爬取，避免重复请求。
+法律合规：仅用于个人学习研究，不要重新分发或商业化使用爬取的内容。
+关注 deepwiki-open：搜索结果显示存在开源版 deepwiki-open，它可能有更直接的数据获取方式，值得研究其源码作为参考。
+
+需要我进一步帮你实现某个具体模块的代码吗？比如先从 P0 验证开始，我可以帮你写一个快速探测 DeepWiki 页面结构的控制台工具。
+
+## user
+
+帮我起一个名字，给几个备选
+
+## assistant
+
+以下是为你准备的几个项目名称备选，涵盖了从直观描述到创意隐喻的不同风格：
+直观功能型
+这类名字一目了然，看到名字就知道项目是做什么的，适合开源或团队协作。
+DeepWikiFetcher：最直白的选择，"Fetch" 准确表达了"获取/拉取"文档集合的动作，比 Crawler 更温和、更聚焦于结果。
+DeepDocSync：强调"同步"概念，暗示可以将远程文档集完整映射到本地，且为未来支持增量更新埋下伏笔。
+WikiMirror.NET：突出"镜像"属性，表明该项目是将 DeepWiki 的内容在本地建立一份完整副本。
+简洁工具型
+短小精悍，适合作为 CLI 工具的命令名，输入体验好。
+DeepPull：仅两个音节，作为命令行工具使用时非常顺手（如 deeppull dotnet/runtime），动词 Pull 与 Git 生态呼应。
+Dwiki：DeepWiki 的极简缩写，类似 kubectl、npm 等经典工具命名风格，辨识度极高。
+WikiGrab：Grab 比 Fetch/Crawl 更有"一把抓取整个集合"的力度感，口语化且易记。
+意象隐喻型
+带有一定文化或技术隐喻，让项目更有记忆点和品牌感。
+AbyssReader："Abyss"（深渊）对应 "Deep"，"Reader" 弱化了爬虫的攻击性，整体传达出"深度阅读/汲取知识"的优雅感。
+EchoWiki："Echo"（回声）寓意将远端的文档内容回响到本地，既有复制的含义，又带有一种知识传递的诗意。
+Cartograph：意为"制图师"，隐喻爬虫像绘制地图一样，将 DeepWiki 上零散的文档页面梳理成结构化的本地知识库版图。
+
+💡 选名建议
+你的侧重点 | 推荐名称 | 理由
+:--- | :--- | :---
+快速开源、SEO友好 | DeepWikiFetcher | 搜索相关性最强，用户一眼理解用途
+做成日常CLI工具 | DeepPull / Dwiki | 输入成本最低，符合开发者肌肉记忆
+个人作品、追求调性 | AbyssReader / Cartograph | 有故事感，README 写起来更有发挥空间
+强调完整性与结构化 | DeepDocSync | 暗示不只是爬取，还有索引和目录树维护
+⚠️ 命名前检查清单
+NuGet 包名是否已被占用（即使不发布也建议预留）
+GitHub 同名仓库是否存在
+避免使用 DeepWiki 官方商标作为项目主名（如不要叫 "DeepWiki" 本身），用 Fetcher/Sync/Reader 等后缀规避法律风险
+
+你更倾向哪个方向？如果有了心仪的选项，我可以帮你进一步设计对应的 Logo 概念或 Slogan。
+
