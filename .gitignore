@@ -8,6 +8,9 @@ obj/
 *.exe
 *.pdb
 
+## .agent
+**/.agent*
+
 ## Visual Studio
 .vs/
 *.sln.docstates
@@ -25,3 +28,14 @@ obj/
 ## OS
 .DS_Store
 Thumbs.db
+
+## DeepWikiFetcher — Configuration (local secrets)
+appsettings.json
+appsettings.*.json
+!appsettings.template.json
+
+## DeepWikiFetcher — Output & Cache
+Output/
+*.db
+*.db-shm
+*.db-wal

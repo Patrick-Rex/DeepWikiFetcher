@@ -5,6 +5,12 @@
 **Status**: Draft  
 **Input**: User description: "$ARGUMENTS"
 
+> **⚠️ PREREQUISITE — READ FIRST**: Before producing any spec output, you MUST read the
+> project architecture document at `docs/design/architecture.md`. This document defines
+> the layered architecture (Host → Services → Infrastructure → Data), service boundaries,
+> dual-mode content fetching strategy, concurrency model, and all component contracts.
+> All spec output MUST align with these architectural constraints.
+
 ## User Scenarios & Testing *(mandatory)*
 
 <!--

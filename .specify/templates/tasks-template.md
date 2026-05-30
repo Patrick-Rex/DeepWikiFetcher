@@ -8,6 +8,12 @@ description: "Task list template for feature implementation"
 **Input**: Design documents from `/specs/[###-feature-name]/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
+> **⚠️ PREREQUISITE — READ FIRST**: Before producing any task breakdown, you MUST read the
+> project architecture document at `docs/design/architecture.md`. This document defines
+> the layered architecture (Host → Services → Infrastructure → Data), service boundaries,
+> dual-mode content fetching strategy, concurrency model, and all component contracts.
+> All task assignments and phase groupings MUST respect these architectural boundaries.
+
 **Tests**: The examples below include test tasks. Tests are OPTIONAL - only include them if explicitly requested in the feature specification.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.

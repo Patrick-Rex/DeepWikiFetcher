@@ -5,6 +5,12 @@
 
 **Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
 
+> **⚠️ PREREQUISITE — READ FIRST**: Before producing any design output, you MUST read the
+> project architecture document at `docs/design/architecture.md`. This document defines
+> the layered architecture (Host → Services → Infrastructure → Data), service boundaries,
+> dual-mode content fetching strategy, concurrency model, and all component contracts.
+> All plan output MUST align with these architectural constraints.
+
 ## Summary
 
 [Extract from feature spec: primary requirement + technical approach from research]
