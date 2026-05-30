@@ -8,8 +8,17 @@ obj/
 *.exe
 *.pdb
 
+## DeepWikiFetcher
+appsettings.json
+appsettings.Development.json
+*.db
+*.db-shm
+*.db-wal
+Output/
+
 ## .agent
 **/.agent*
+**/.specify
 
 ## Visual Studio
 .vs/

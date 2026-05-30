@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>DeepWikiFetcher.Services</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AngleSharp" Version="1.2.0" />
+    <PackageReference Include="Markdig" Version="0.40.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0-preview.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DeepWikiFetcher.Infrastructure\DeepWikiFetcher.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

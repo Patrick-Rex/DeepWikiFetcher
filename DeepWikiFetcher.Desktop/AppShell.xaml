@@ -1,0 +1,21 @@
+<?xml version = "1.0" encoding = "UTF-8" ?>
+<Shell
+    x:Class="DeepWikiFetcher.Desktop.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:pages="clr-namespace:DeepWikiFetcher.Desktop.Pages"
+    Title="DeepWikiFetcher">
+
+    <TabBar>
+        <ShellContent
+            Title="设置"
+            ContentTemplate="{DataTemplate pages:SettingsPage}" />
+        <ShellContent
+            Title="抓取"
+            ContentTemplate="{DataTemplate pages:CrawlPage}" />
+        <ShellContent
+            Title="历史"
+            ContentTemplate="{DataTemplate pages:HistoryPage}" />
+    </TabBar>
+
+</Shell>

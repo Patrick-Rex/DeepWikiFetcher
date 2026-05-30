@@ -94,8 +94,7 @@ flowchart TB
 │  AssetDownloader / PollyPipeline                      │
 │  外部依赖封装                                         │
 ├──────────────────────────────────────────────────────┤
-│  Shared 层 (Data)                                     │
-│  Models / Options / Enums / Constants                 │
+│  Shared 层 (Models / Options / Enums)                 │
 │  数据结构与配置模型                                    │
 └──────────────────────────────────────────────────────┘
 ```

@@ -1,3 +1,7 @@
 <Solution>
   <Project Path="DeepWikiFetcher.Host/DeepWikiFetcher.Host.csproj" />
+  <Project Path="DeepWikiFetcher.Infrastructure/DeepWikiFetcher.Infrastructure.csproj" />
+  <Project Path="DeepWikiFetcher.Services/DeepWikiFetcher.Services.csproj" />
+  <Project Path="DeepWikiFetcher.Shared/DeepWikiFetcher.Shared.csproj" />
+  <Project Path="DeepWikiFetcher.Desktop/DeepWikiFetcher.Desktop.csproj" />
 </Solution>
