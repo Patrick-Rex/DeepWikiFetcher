@@ -3,5 +3,7 @@
   <Project Path="DeepWikiFetcher.Infrastructure/DeepWikiFetcher.Infrastructure.csproj" />
   <Project Path="DeepWikiFetcher.Services/DeepWikiFetcher.Services.csproj" />
   <Project Path="DeepWikiFetcher.Shared/DeepWikiFetcher.Shared.csproj" />
-  <Project Path="DeepWikiFetcher.Desktop/DeepWikiFetcher.Desktop.csproj" />
+  <Project Path="DeepWikiFetcher.Desktop/DeepWikiFetcher.Desktop.csproj" Id="b3ea34fc-d7cc-457c-885b-f27ce6395e9a">
+    <Deploy Solution="Debug|*" />
+  </Project>
 </Solution>

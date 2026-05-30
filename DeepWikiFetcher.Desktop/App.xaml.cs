@@ -1,4 +1,4 @@
-namespace DeepWikiFetcher.Desktop;
+﻿namespace DeepWikiFetcher.Desktop;
 
 public partial class App : Application
 {
