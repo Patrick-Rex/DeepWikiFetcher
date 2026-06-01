@@ -3,11 +3,40 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="DeepWikiFetcher.Desktop.Pages.SettingsPage"
              Title="设置">
-    <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center">
-        <Label
-            Text="配置抓取参数 — 即将推出"
-            FontSize="18"
-            HorizontalOptions="Center"
-            TextColor="Gray" />
-    </VerticalStackLayout>
+    <ScrollView>
+        <Grid Padding="24" RowSpacing="14" ColumnSpacing="16" ColumnDefinitions="180,*">
+            <Label Grid.Row="0" Grid.Column="0" Text="GitHub URL" VerticalOptions="Center" />
+            <Entry Grid.Row="0" Grid.Column="1" Text="{Binding GitHubUrl}" Placeholder="https://github.com/owner/repo" />
+
+            <Label Grid.Row="1" Grid.Column="0" Text="输出目录" VerticalOptions="Center" />
+            <Entry Grid.Row="1" Grid.Column="1" Text="{Binding OutputRoot}" />
+
+            <Label Grid.Row="2" Grid.Column="0" Text="输出格式" VerticalOptions="Center" />
+            <Picker Grid.Row="2" Grid.Column="1" ItemsSource="{Binding OutputFormats}" SelectedItem="{Binding SelectedOutputFormat}" />
+
+            <Label Grid.Row="3" Grid.Column="0" Text="启用翻译" VerticalOptions="Center" />
+            <Switch Grid.Row="3" Grid.Column="1" IsToggled="{Binding TranslationEnabled}" HorizontalOptions="Start" />
+
+            <Label Grid.Row="4" Grid.Column="0" Text="API Base URL" VerticalOptions="Center" />
+            <Entry Grid.Row="4" Grid.Column="1" Text="{Binding TranslationBaseUrl}" Placeholder="https://api.openai.com" />
+
+            <Label Grid.Row="5" Grid.Column="0" Text="API Key" VerticalOptions="Center" />
+            <Entry Grid.Row="5" Grid.Column="1" Text="{Binding TranslationApiKey}" IsPassword="True" />
+
+            <Label Grid.Row="6" Grid.Column="0" Text="模型" VerticalOptions="Center" />
+            <Entry Grid.Row="6" Grid.Column="1" Text="{Binding TranslationModel}" />
+
+            <Label Grid.Row="7" Grid.Column="0" Text="抓取并发" VerticalOptions="Center" />
+            <Stepper Grid.Row="7" Grid.Column="1" Minimum="1" Maximum="10" Increment="1" Value="{Binding MaxConcurrency}" HorizontalOptions="Start" />
+
+            <Label Grid.Row="8" Grid.Column="0" Text="翻译批大小" VerticalOptions="Center" />
+            <Stepper Grid.Row="8" Grid.Column="1" Minimum="1" Maximum="100" Increment="1" Value="{Binding BatchSize}" HorizontalOptions="Start" />
+
+            <Label Grid.Row="9" Grid.Column="0" Text="Playwright" VerticalOptions="Center" />
+            <Switch Grid.Row="9" Grid.Column="1" IsToggled="{Binding PlaywrightEnabled}" HorizontalOptions="Start" />
+
+            <Button Grid.Row="10" Grid.Column="1" Text="保存" Command="{Binding SaveCommand}" HorizontalOptions="Start" />
+            <Label Grid.Row="11" Grid.Column="1" Text="{Binding StatusMessage}" TextColor="Gray" />
+        </Grid>
+    </ScrollView>
 </ContentPage>

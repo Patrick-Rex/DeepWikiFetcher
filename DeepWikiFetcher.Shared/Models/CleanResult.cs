@@ -10,4 +10,7 @@ public sealed class CleanResult
 
     /// <summary>提取的图片引用列表（绝对 URL）</summary>
     public List<string> ImageUrls { get; set; } = [];
+
+    /// <summary>下载完成的图片资源列表。</summary>
+    public List<AssetInfo> AssetInfos { get; set; } = [];
 }

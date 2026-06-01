@@ -1,4 +1,5 @@
 using DeepWikiFetcher.Shared.Models;
+using DeepWikiFetcher.Shared.Enums;
 
 namespace DeepWikiFetcher.Services.Interfaces;
 
@@ -7,6 +8,9 @@ namespace DeepWikiFetcher.Services.Interfaces;
 /// </summary>
 public interface IOutputGenerator
 {
+    /// <summary>支持的输出格式。</summary>
+    OutputFormat Format { get; }
+
     /// <summary>
     /// 根据文档目录树生成输出文件。
     /// </summary>

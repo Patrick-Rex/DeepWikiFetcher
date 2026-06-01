@@ -2,18 +2,20 @@
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan.
 
+**Current Plan**: `specs/002-bilingual-static-maui/plan.md`
+
 **Architecture document**: All spec-kit agents (speckit.plan, speckit.specify,
 speckit.tasks) MUST read `docs/design/architecture.md` before producing any
-output. This document is the authoritative source for layered architecture
-(Host → Services → Infrastructure → Data), service boundaries, dual-mode
-content fetching, concurrency model, and component contracts.
+output. This document is the authoritative source for 5-project layered
+architecture (Host → Services → Infrastructure → Shared, plus Desktop MAUI),
+bilingual output, dual output format, OpenAI translation, and SQLite caching.
 <!-- SPECKIT END -->
 
 # DeepWikiFetcher
 
 ## TL;DR
-C# .NET 10 爬虫：输入 GitHub 仓库 URL → 下载 DeepWiki 文档集为 Markdown。
-Host 层只做 DI + 启动，核心逻辑在 Services/ 和 Infrastructure/。
+C# .NET 10 工具：输入 GitHub 仓库 URL → 爬取 DeepWiki 文档集，输出双语 Markdown。
+支持 Host 控制台 和 MAUI 桌面端双入口，核心逻辑在 Services/ 和 Infrastructure/。
 
 ## Build & Run
 ```sh
@@ -36,8 +38,12 @@ dotnet run --project DeepWikiFetcher.Host
 
 | 文件 | 描述 |
 |------|------|
-| `design/architecture.md` | 系统架构：分层设计、服务边界、数据流 |
-| `design/tech-stack.md` | 技术选型及版本约束 |
+| `design/architecture.md` | 系统架构 v2.0：5 项目分层、双语输出、双输出格式、MAUI 桌面端、OpenAI 翻译、SQLite 缓存 |
+| `design/database.md` | SQLite 数据库设计：表结构 DDL、索引策略、缓存过期机制 |
+| `design/data-model.md` | 数据模型设计：DTO、Record、Enum 定义及字段说明 |
+| `design/tech-stack.md` | 技术选型、版本约束及关键使用限制 |
+| `spec/ai-markdown.md` | AI 优化 Markdown 编写规范 |
+| `spec/csharp-coding-standard.md` | C# 代码编写规范，聚合所有 C# 约定 |
 ```
 
 ### Folder Structure

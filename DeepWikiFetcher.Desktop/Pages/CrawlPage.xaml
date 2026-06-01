@@ -3,11 +3,27 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="DeepWikiFetcher.Desktop.Pages.CrawlPage"
              Title="抓取">
-    <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center">
-        <Label
-            Text="抓取控制面板 — 即将推出"
-            FontSize="18"
-            HorizontalOptions="Center"
-            TextColor="Gray" />
-    </VerticalStackLayout>
+    <Grid Padding="24" RowSpacing="16" RowDefinitions="Auto,Auto,Auto,*">
+        <HorizontalStackLayout Grid.Row="0" Spacing="12">
+            <Button Text="开始" Command="{Binding StartCommand}" />
+            <Button Text="暂停" Command="{Binding PauseCommand}" />
+            <Button Text="取消" Command="{Binding CancelCommand}" />
+        </HorizontalStackLayout>
+
+        <VerticalStackLayout Grid.Row="1" Spacing="8">
+            <ProgressBar Progress="{Binding ProgressValue}" />
+            <Label Text="{Binding StatusMessage}" TextColor="Gray" />
+            <Label Text="{Binding CurrentPageTitle}" FontAttributes="Bold" />
+        </VerticalStackLayout>
+
+        <Label Grid.Row="2" Text="日志" FontAttributes="Bold" />
+
+        <CollectionView Grid.Row="3" ItemsSource="{Binding Logs}">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Label Text="{Binding .}" FontSize="12" LineBreakMode="WordWrap" Padding="0,4" />
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
 </ContentPage>

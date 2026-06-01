@@ -3,11 +3,28 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="DeepWikiFetcher.Desktop.Pages.HistoryPage"
              Title="历史">
-    <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center">
-        <Label
-            Text="历史记录 — 即将推出"
-            FontSize="18"
-            HorizontalOptions="Center"
-            TextColor="Gray" />
-    </VerticalStackLayout>
+    <Grid Padding="24" RowSpacing="12" RowDefinitions="Auto,Auto,*">
+        <HorizontalStackLayout Grid.Row="0" Spacing="12">
+            <Button Text="刷新" Command="{Binding RefreshCommand}" />
+            <Label Text="{Binding StatusMessage}" VerticalOptions="Center" TextColor="Gray" />
+        </HorizontalStackLayout>
+
+        <Grid Grid.Row="1" ColumnDefinitions="2*,3*,Auto" Padding="0,0,0,8">
+            <Label Grid.Column="0" Text="仓库" FontAttributes="Bold" />
+            <Label Grid.Column="1" Text="输出目录" FontAttributes="Bold" />
+            <Label Grid.Column="2" Text="操作" FontAttributes="Bold" />
+        </Grid>
+
+        <CollectionView Grid.Row="2" ItemsSource="{Binding Items}">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Grid ColumnDefinitions="2*,3*,Auto" Padding="0,6">
+                        <Label Grid.Column="0" Text="{Binding Repository}" />
+                        <Label Grid.Column="1" Text="{Binding OutputPath}" LineBreakMode="TailTruncation" />
+                        <Button Grid.Column="2" Text="打开" Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.OpenDirectoryCommand}" CommandParameter="{Binding .}" />
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
 </ContentPage>

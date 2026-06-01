@@ -16,6 +16,8 @@ using Scalar.AspNetCore;
 string? url = null;
 string output = "./Output";
 bool serverMode = false;
+bool translate = false;
+var outputFormat = OutputFormat.Markdown;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -30,6 +32,17 @@ for (int i = 0; i < args.Length; i++)
     else if (args[i] is "--server" or "-s")
     {
         serverMode = true;
+    }
+    else if (args[i] is "--translate" or "-t")
+    {
+        translate = true;
+    }
+    else if (args[i] is "--format" or "-f" && i + 1 < args.Length)
+    {
+        if (!Enum.TryParse(args[++i], ignoreCase: true, out outputFormat))
+        {
+            throw new ArgumentException("Unsupported output format. Use Markdown or StaticSite.");
+        }
     }
 }
 
@@ -47,7 +60,7 @@ if (serverMode)
 else
 {
     // ========== CLI 模式 ==========
-    await RunCliMode(url!, output, args);
+    await RunCliMode(url!, output, outputFormat, translate, args);
 }
 
 // ===== Server 模式实现 =====
@@ -115,7 +128,7 @@ static async Task RunServerMode(string[] args, string output)
 }
 
 // ===== CLI 模式实现 =====
-static async Task RunCliMode(string url, string output, string[] args)
+static async Task RunCliMode(string url, string output, OutputFormat outputFormat, bool translate, string[] args)
 {
     Console.WriteLine("DeepWikiFetcher ready");
 
@@ -126,7 +139,7 @@ static async Task RunCliMode(string url, string output, string[] args)
         .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
         .AddJsonFile("appsettings.template.json", optional: true, reloadOnChange: false);
 
-    ConfigureServices(builder.Services, builder.Configuration);
+    ConfigureServices(builder.Services, builder.Configuration, translate);
 
     var host = builder.Build();
     var orchestrator = host.Services.GetRequiredService<ICrawlOrchestrator>();
@@ -135,8 +148,8 @@ static async Task RunCliMode(string url, string output, string[] args)
     {
         GitHubUrl = url,
         OutputRoot = output,
-        OutputFormat = OutputFormat.Markdown,
-        TranslationEnabled = false
+        OutputFormat = outputFormat,
+        TranslationEnabled = translate || builder.Configuration.GetValue<bool>($"{TranslationOptions.SectionName}:Enabled")
     };
 
     var result = await orchestrator.StartAsync(crawlOptions);
@@ -152,13 +165,25 @@ static async Task RunCliMode(string url, string output, string[] args)
 }
 
 // ===== 共用 DI 注册 =====
-static void ConfigureServices(IServiceCollection services, IConfiguration configuration)
+static void ConfigureServices(IServiceCollection services, IConfiguration configuration, bool forceTranslation = false)
 {
     services.Configure<CrawlerOptions>(configuration.GetSection("Crawler"));
     services.Configure<PlaywrightOptions>(configuration.GetSection("Playwright"));
-    services.Configure<TranslationOptions>(configuration.GetSection("Translation"));
+    services.AddOptions<TranslationOptions>()
+        .Bind(configuration.GetSection(TranslationOptions.SectionName))
+        .Validate(options => options.BatchSize >= 1 && options.BatchSize <= 100, "Translation:BatchSize must be between 1 and 100.")
+        .Validate(options => options.MaxConcurrency >= 1 && options.MaxConcurrency <= 10, "Translation:MaxConcurrency must be between 1 and 10.")
+        .Validate(options => options.CacheExpirationDays >= 1, "Translation:CacheExpirationDays must be greater than zero.")
+        .Validate(options => options.RequestDelayMs >= 0, "Translation:RequestDelayMs must be greater than or equal to zero.")
+        .ValidateOnStart();
+
+    if (forceTranslation)
+    {
+        services.PostConfigure<TranslationOptions>(options => options.Enabled = true);
+    }
 
     // HttpClient（命名注册，需手动指定）
+    services.AddHttpClient();
     services.AddHttpClient<IPageFetcher, DeepWikiFetcher.Services.Services.PageFetcher>();
 
     // 自动扫描注册：IXxx → Xxx (Singleton)
@@ -166,7 +191,7 @@ static void ConfigureServices(IServiceCollection services, IConfiguration config
     services.AddServicesFromAssembly(typeof(DeepWikiFetcher.Infrastructure.Interfaces.ICacheManager).Assembly);
 
     // 命名不匹配约定的手动注册
-    services.AddSingleton<IOutputGenerator, MarkdownWriter>();
+    services.AddOutputGenerators();
     services.AddSingleton<OutputSerializer>();
 
     services.AddLogging(logging => logging.AddConsole());

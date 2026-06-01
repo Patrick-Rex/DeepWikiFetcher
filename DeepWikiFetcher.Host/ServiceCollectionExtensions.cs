@@ -1,4 +1,6 @@
 using System.Reflection;
+using DeepWikiFetcher.Services.Interfaces;
+using DeepWikiFetcher.Services.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -34,6 +36,16 @@ public static class ServiceCollectionExtensions
             }
         }
 
+        return services;
+    }
+
+    /// <summary>
+    /// 注册所有输出生成器实现。
+    /// </summary>
+    public static IServiceCollection AddOutputGenerators(this IServiceCollection services)
+    {
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IOutputGenerator, MarkdownWriter>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IOutputGenerator, StaticSiteGenerator>());
         return services;
     }
 }

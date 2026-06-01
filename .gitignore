@@ -37,6 +37,9 @@ Output/
 ## OS
 .DS_Store
 Thumbs.db
+*.tmp
+*.swp
+.env*
 
 ## DeepWikiFetcher — Configuration (local secrets)
 appsettings.json

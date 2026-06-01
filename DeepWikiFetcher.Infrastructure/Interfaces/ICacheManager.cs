@@ -33,4 +33,18 @@ public interface ICacheManager
     /// <param name="repoKey">仓库标识（owner/repo）</param>
     /// <returns>爬取元数据，不存在返回 null</returns>
     Task<CrawlMetadata?> GetMetadataAsync(string repoKey);
+
+    /// <summary>
+    /// 获取翻译缓存。
+    /// </summary>
+    /// <param name="sourceText">原始正文。</param>
+    /// <param name="model">翻译模型。</param>
+    /// <returns>缓存条目，未命中或过期返回 null。</returns>
+    Task<TranslationCacheEntry?> GetTranslationAsync(string sourceText, string model);
+
+    /// <summary>
+    /// 保存翻译缓存。
+    /// </summary>
+    /// <param name="entry">翻译缓存条目。</param>
+    Task SetTranslationAsync(TranslationCacheEntry entry);
 }

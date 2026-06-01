@@ -25,4 +25,7 @@ public sealed class DocumentNode
 
     /// <summary>页面清洗后的 HTML 内容（爬取阶段填充）</summary>
     public string? Content { get; set; }
+
+    /// <summary>翻译后的页面正文（翻译阶段填充）</summary>
+    public string? TranslatedContent { get; set; }
 }

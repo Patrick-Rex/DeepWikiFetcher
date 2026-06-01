@@ -19,7 +19,9 @@ public sealed class CrawlOrchestrator : ICrawlOrchestrator
     private readonly ISidebarParser _sidebarParser;
     private readonly IPageFetcher _pageFetcher;
     private readonly IHtmlCleaner _htmlCleaner;
-    private readonly IOutputGenerator _outputGenerator;
+    private readonly IAssetDownloader _assetDownloader;
+    private readonly ITranslationService _translationService;
+    private readonly IEnumerable<IOutputGenerator> _outputGenerators;
     private readonly OutputSerializer _outputSerializer;
     private readonly ICacheManager _cacheManager;
     private readonly CrawlerOptions _crawlerOptions;
@@ -30,7 +32,9 @@ public sealed class CrawlOrchestrator : ICrawlOrchestrator
         ISidebarParser sidebarParser,
         IPageFetcher pageFetcher,
         IHtmlCleaner htmlCleaner,
-        IOutputGenerator outputGenerator,
+        IAssetDownloader assetDownloader,
+        ITranslationService translationService,
+        IEnumerable<IOutputGenerator> outputGenerators,
         OutputSerializer outputSerializer,
         ICacheManager cacheManager,
         IOptions<CrawlerOptions> crawlerOptions,
@@ -40,7 +44,9 @@ public sealed class CrawlOrchestrator : ICrawlOrchestrator
         _sidebarParser = sidebarParser;
         _pageFetcher = pageFetcher;
         _htmlCleaner = htmlCleaner;
-        _outputGenerator = outputGenerator;
+        _assetDownloader = assetDownloader;
+        _translationService = translationService;
+        _outputGenerators = outputGenerators;
         _outputSerializer = outputSerializer;
         _cacheManager = cacheManager;
         _crawlerOptions = crawlerOptions.Value;
@@ -48,14 +54,27 @@ public sealed class CrawlOrchestrator : ICrawlOrchestrator
     }
 
     /// <inheritdoc />
-    public async Task<CrawlResult> StartAsync(CrawlOptions options, CancellationToken ct = default)
+    public async Task<CrawlResult> StartAsync(
+        CrawlOptions options,
+        IProgress<CrawlProgress>? progress = null,
+        CancellationToken ct = default)
     {
         var sw = Stopwatch.StartNew();
         _logger.LogInformation("Crawl start: {GitHubUrl}", options.GitHubUrl);
+        progress?.Report(new CrawlProgress
+        {
+            Phase = Shared.Enums.CrawlPhase.UrlTransform,
+            LogMessage = "Crawl started"
+        });
 
         // 1. URL 转换
         var deepWikiUrl = _urlTransformer.Transform(options.GitHubUrl);
         _logger.LogInformation("DeepWiki URL: {Url}", deepWikiUrl);
+        progress?.Report(new CrawlProgress
+        {
+            Phase = Shared.Enums.CrawlPhase.SidebarParse,
+            LogMessage = $"DeepWiki URL: {deepWikiUrl}"
+        });
 
         // 2. 侧边栏解析 → 获取 DocumentNode 树
         var docTree = await _sidebarParser.ParseAsync(deepWikiUrl, ct);
@@ -81,6 +100,13 @@ public sealed class CrawlOrchestrator : ICrawlOrchestrator
         CollectPages(docTree, pages);
         var totalPages = pages.Count;
         _logger.LogInformation("Total pages to fetch: {Count}", totalPages);
+        progress?.Report(new CrawlProgress
+        {
+            Phase = Shared.Enums.CrawlPhase.PageFetch,
+            TotalPages = totalPages,
+            CompletedPages = 0,
+            LogMessage = $"Total pages: {totalPages}"
+        });
 
         // 5. 生产者-消费者：通过 Channel 分发页面
         var channelOptions = new BoundedChannelOptions(_crawlerOptions.ChannelCapacity)
@@ -92,6 +118,7 @@ public sealed class CrawlOrchestrator : ICrawlOrchestrator
 
         var successCount = 0;
         var failCount = 0;
+        var completedCount = 0;
         var lockObj = new object();
 
         // 消费者任务
@@ -105,7 +132,7 @@ public sealed class CrawlOrchestrator : ICrawlOrchestrator
                     await semaphore.WaitAsync(ct);
                     try
                     {
-                        await ProcessPageAsync(node, ct);
+                        await ProcessPageAsync(node, outputDir, ct);
                         lock (lockObj) { successCount++; }
                     }
                     catch (Exception ex)
@@ -115,6 +142,15 @@ public sealed class CrawlOrchestrator : ICrawlOrchestrator
                     }
                     finally
                     {
+                        int completed = Interlocked.Increment(ref completedCount);
+                        progress?.Report(new CrawlProgress
+                        {
+                            Phase = Shared.Enums.CrawlPhase.PageFetch,
+                            TotalPages = totalPages,
+                            CompletedPages = completed,
+                            CurrentPageTitle = node.Title,
+                            LogMessage = $"Processed {node.Title}"
+                        });
                         semaphore.Release();
                     }
                 }
@@ -134,8 +170,23 @@ public sealed class CrawlOrchestrator : ICrawlOrchestrator
         // 等待所有消费者完成
         await Task.WhenAll(consumerTasks);
 
-        // 6. 输出生成
-        await _outputGenerator.GenerateAsync(docTree, outputDir, ct);
+        // 6. 可选翻译
+        if (options.TranslationEnabled)
+        {
+            await _translationService.TranslateBatchAsync(docTree, progress, ct);
+        }
+
+        // 7. 输出生成
+        progress?.Report(new CrawlProgress
+        {
+            Phase = Shared.Enums.CrawlPhase.Output,
+            TotalPages = totalPages,
+            CompletedPages = totalPages,
+            LogMessage = $"Generating {options.OutputFormat} output"
+        });
+        var outputGenerator = _outputGenerators.FirstOrDefault(generator => generator.Format == options.OutputFormat)
+            ?? throw new InvalidOperationException($"Output generator not registered: {options.OutputFormat}");
+        await outputGenerator.GenerateAsync(docTree, outputDir, ct);
         await _outputSerializer.WriteMetadataAsync(new CrawlResult
         {
             RepoKey = repoKey,
@@ -178,12 +229,21 @@ public sealed class CrawlOrchestrator : ICrawlOrchestrator
         return result;
     }
 
-    private async Task ProcessPageAsync(DocumentNode node, CancellationToken ct)
+    private async Task ProcessPageAsync(DocumentNode node, string outputDir, CancellationToken ct)
     {
         _logger.LogInformation("Processing page ({Number}): {Url}", node.Number, node.Url);
 
         var rawHtml = await _pageFetcher.FetchAsync(node.Url, ct);
         var cleanResult = await _htmlCleaner.CleanAsync(rawHtml, node.Url, ct);
+        cleanResult.AssetInfos = await _assetDownloader.DownloadAsync(cleanResult.ImageUrls, outputDir, ct);
+
+        foreach (var assetInfo in cleanResult.AssetInfos.Where(asset => asset.Downloaded))
+        {
+            cleanResult.CleanHtml = cleanResult.CleanHtml.Replace(
+                assetInfo.OriginalUrl,
+                $"assets/images/{assetInfo.LocalFileName}",
+                StringComparison.OrdinalIgnoreCase);
+        }
 
         // 将清洗后的 HTML 暂存到 node（用于 MarkdownWriter 输出）
         // DocumentNode 模型需添加 Content 字段（在 MarkdownWriter 中直接引用）

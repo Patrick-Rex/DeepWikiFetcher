@@ -58,6 +58,20 @@ public sealed class CacheManager : ICacheManager, IDisposable
             );
 
             CREATE INDEX IF NOT EXISTS idx_page_cache_expires ON page_cache(expires_at);
+
+            CREATE TABLE IF NOT EXISTS translation_cache (
+                source_hash TEXT PRIMARY KEY,
+                page_url TEXT NOT NULL,
+                source_text TEXT NOT NULL,
+                translated_text TEXT NOT NULL,
+                model TEXT NOT NULL DEFAULT '',
+                cached_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_translation_cache_page_url ON translation_cache(page_url);
+            CREATE INDEX IF NOT EXISTS idx_translation_cache_model ON translation_cache(model);
+            CREATE INDEX IF NOT EXISTS idx_translation_cache_expires ON translation_cache(expires_at);
             """;
         cmd.ExecuteNonQuery();
         _initialized = true;
@@ -156,6 +170,64 @@ public sealed class CacheManager : ICacheManager, IDisposable
         }
 
         return null;
+    }
+
+    /// <inheritdoc />
+    public async Task<TranslationCacheEntry?> GetTranslationAsync(string sourceText, string model)
+    {
+        var hash = ComputeHash(sourceText);
+
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            SELECT source_hash, page_url, source_text, translated_text, model, cached_at, expires_at
+            FROM translation_cache
+            WHERE source_hash = @hash AND model = @model AND expires_at > @now
+            LIMIT 1
+            """;
+        cmd.Parameters.AddWithValue("@hash", hash);
+        cmd.Parameters.AddWithValue("@model", model);
+        cmd.Parameters.AddWithValue("@now", DateTime.UtcNow.ToString("O"));
+
+        using var reader = await cmd.ExecuteReaderAsync();
+        if (!await reader.ReadAsync())
+        {
+            _logger.LogInformation("Translation cache MISS: {Hash}", hash);
+            return null;
+        }
+
+        _logger.LogInformation("Translation cache HIT: {Hash}", hash);
+        return new TranslationCacheEntry
+        {
+            SourceHash = reader.GetString(0),
+            PageUrl = reader.GetString(1),
+            SourceText = reader.GetString(2),
+            TranslatedText = reader.GetString(3),
+            Model = reader.GetString(4),
+            CachedAt = DateTimeOffset.Parse(reader.GetString(5)),
+            ExpiresAt = DateTimeOffset.Parse(reader.GetString(6))
+        };
+    }
+
+    /// <inheritdoc />
+    public async Task SetTranslationAsync(TranslationCacheEntry entry)
+    {
+        using var cmd = _connection.CreateCommand();
+        cmd.CommandText = """
+            INSERT OR REPLACE INTO translation_cache
+                (source_hash, page_url, source_text, translated_text, model, cached_at, expires_at)
+            VALUES
+                (@sourceHash, @pageUrl, @sourceText, @translatedText, @model, @cachedAt, @expiresAt)
+            """;
+        cmd.Parameters.AddWithValue("@sourceHash", entry.SourceHash);
+        cmd.Parameters.AddWithValue("@pageUrl", entry.PageUrl);
+        cmd.Parameters.AddWithValue("@sourceText", entry.SourceText);
+        cmd.Parameters.AddWithValue("@translatedText", entry.TranslatedText);
+        cmd.Parameters.AddWithValue("@model", entry.Model);
+        cmd.Parameters.AddWithValue("@cachedAt", entry.CachedAt.ToString("O"));
+        cmd.Parameters.AddWithValue("@expiresAt", entry.ExpiresAt.ToString("O"));
+
+        await cmd.ExecuteNonQueryAsync();
+        _logger.LogInformation("Translation cache SET: {Hash}", entry.SourceHash);
     }
 
     private static string ComputeHash(string input)

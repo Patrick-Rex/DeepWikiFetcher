@@ -11,7 +11,11 @@ public interface ICrawlOrchestrator
     /// 启动爬取流水线。
     /// </summary>
     /// <param name="options">爬取配置</param>
+    /// <param name="progress">进度报告回调</param>
     /// <param name="ct">取消令牌</param>
     /// <returns>爬取结果汇总</returns>
-    Task<CrawlResult> StartAsync(CrawlOptions options, CancellationToken ct = default);
+    Task<CrawlResult> StartAsync(
+        CrawlOptions options,
+        IProgress<CrawlProgress>? progress = null,
+        CancellationToken ct = default);
 }

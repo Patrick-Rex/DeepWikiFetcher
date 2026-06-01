@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using DeepWikiFetcher.Services.Interfaces;
+using DeepWikiFetcher.Shared.Enums;
 using DeepWikiFetcher.Shared.Models;
 using Markdig;
 using Microsoft.Extensions.Logging;
@@ -18,6 +19,9 @@ public sealed class MarkdownWriter : IOutputGenerator
     {
         _logger = logger;
     }
+
+    /// <inheritdoc />
+    public OutputFormat Format => OutputFormat.Markdown;
 
     /// <inheritdoc />
     public Task GenerateAsync(DocumentNode root, string outputDir, CancellationToken ct = default)
